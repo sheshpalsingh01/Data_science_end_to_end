@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: MLProject
+Version: 0.0.1
+Author: Sheshpal
+Author-email: sheshpalsingh2024@gmail.com
+License-File: LICENSE
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: seaborn
+Dynamic: author
+Dynamic: author-email
+Dynamic: license-file
+Dynamic: requires-dist
