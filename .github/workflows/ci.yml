@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify model artifacts are present
+        run: |
+          test -f artifacts/model.pkl
+          test -f artifacts/preprocessor.pkl
+
+      - name: Build Docker image
+        run: docker build --tag student-performance:ci .
+
+      - name: Smoke-test web app and prediction
+        run: |
+          docker run --detach --rm \
+            --name student-performance-ci \
+            --publish 8080:8080 \
+            student-performance:ci
+          trap 'docker stop student-performance-ci >/dev/null 2>&1 || true' EXIT
+
+          curl --fail --silent --show-error \
+            --retry 30 --retry-all-errors --retry-delay 2 \
+            http://localhost:8080/
+          curl --fail --silent --show-error \
+            http://localhost:8080/predict >/dev/null
+          curl --fail --silent --show-error \
+            --request POST \
+            --data-urlencode 'gender=female' \
+            --data-urlencode 'race_ethnicity=group C' \
+            --data-urlencode "parental_level_of_education=bachelor's degree" \
+            --data-urlencode 'lunch=standard' \
+            --data-urlencode 'test_preparation_course=none' \
+            --data-urlencode 'reading_score=72' \
+            --data-urlencode 'writing_score=74' \
+            http://localhost:8080/predict | grep --quiet 'Predicted Math Score'
+
+  deploy-to-cloud-run:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-and-smoke-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Build and push image to Artifact Registry
+        id: build-push
+        env:
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          GCP_ARTIFACT_REGISTRY_REPOSITORY: ${{ vars.GCP_ARTIFACT_REGISTRY_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+          image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_ARTIFACT_REGISTRY_REPOSITORY}/student-performance:${GITHUB_SHA}"
+          docker build --tag "$image" .
+          docker push "$image"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          service: student-performance
+          image: ${{ steps.build-push.outputs.image }}
+          flags: >-
+            --project=${{ vars.GCP_PROJECT_ID }}
+            --region=${{ vars.GCP_REGION }}
+            --port=8080
+            --allow-unauthenticated
+            --service-account=${{ vars.GCP_CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT }}

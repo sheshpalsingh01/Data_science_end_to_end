@@ -1,0 +1,12 @@
+.git
+.env
+gha-creds-*.json
+.vscode
+venv
+__pycache__
+*.py[cod]
+*.code-workspace
+*.egg-info
+logs
+catboost_info
+notebook

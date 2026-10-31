@@ -1,8 +1,12 @@
 venv/
 .vscode
 .env
+gha-creds-*.json
 *.code-workspace
-artifacts/
+artifacts/*
+!artifacts/
+!artifacts/model.pkl
+!artifacts/preprocessor.pkl
 *.pyc 
 logs/
 __pycache__
