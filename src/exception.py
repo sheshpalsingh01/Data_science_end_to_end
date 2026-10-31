@@ -46,11 +46,11 @@ class CustomException(Exception):
         return self.error_message
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    try:
-        a = 10 / 0
+#     try:
+#         a = 10 / 0
 
-    except Exception as e:
-        logging.error("An error occurred")
-        raise CustomException(e, sys) from e
+#     except Exception as e:
+#         logging.error("An error occurred")
+#         raise CustomException(e, sys) from e
