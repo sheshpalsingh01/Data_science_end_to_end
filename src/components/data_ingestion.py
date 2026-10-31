@@ -1,11 +1,12 @@
 import os, sys
-from src.logger import logging
-from src.exception import CustomException
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 import pandas as pd
-
 from sklearn.model_selection import train_test_split
 from dataclasses import dataclass
-from data_transformation import DataTransformationConfig,DataTransformation
+from src.logger import logging
+from src.exception import CustomException
+from src.components.data_transformation import DataTransformationConfig,DataTransformation
+from src.components.model_training import ModelTrainerConfig,ModelTrainer
 
 
 @dataclass
@@ -57,3 +58,7 @@ if __name__ =="__main__":
     data_transformation_config = DataTransformationConfig()
     data_transformation = DataTransformation(data_transformation_config)
     train_arr,test_arr,preprocessor_obj = data_transformation.initiate_data_transformation(train_data,test_data)
+
+    model_trainer_config = ModelTrainerConfig()
+    model_trainer = ModelTrainer(model_trainer_config)
+    model_trainer.initiate_model_training(train_arr,test_arr,preprocessor_obj)
